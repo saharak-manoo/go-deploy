@@ -7,8 +7,8 @@ module GoDeploy
       @config = config
     end
 
-    def log(command:, is_show_remote_name: true)
-      puts "\t#{command}".yellow
+    def log(command:, is_show_remote_name: true, is_show_color: true)
+      puts is_show_color ? "\t#{command}".yellow : "\t#{command}"
       show_remote_name if is_show_remote_name
     end
 
@@ -30,16 +30,16 @@ module GoDeploy
       results.all?
     end
 
-    def sudo(ssh:, command:, password: '', is_show_color: true)
+    def sudo_exec(ssh:, command:, is_show_color: true)
       ssh.open_channel do |channel|
         channel.request_pty do |_c, success|
           raise 'Could not request pty' unless success
 
           channel.exec(command)
           channel.on_data do |_c, cmd|
-            log(command: cmd, is_show_remote_name: false) if is_show_color
+            log(command: cmd, is_show_remote_name: false, is_show_color: is_show_color)
 
-            channel.send_data "#{password}\n" if cmd[/\[sudo\]|Password/i]
+            channel.send_data "#{@config['password']}\n" if cmd[/\[sudo\]|Password/i]
           end
         end
       end

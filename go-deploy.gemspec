@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
   s.description = 'Ruby gem for easy to deploy golang to server(ssh)'
   s.authors   = ['Saharak Manoo']
   s.email     = ['saharakmanoo@gmail.com']
-  s.homepage  = 'http://rubygems.org/gems/go-deploy'
+  s.homepage  = 'https://rubygems.org/gems/go-deploy'
   s.license   = 'MIT'
   s.files     = ['lib/go_deploy.rb', 'lib/go_deploy/console.rb', 'lib/go_deploy/deploy.rb', 'lib/go_deploy/string.rb']
   s.require_paths = ['lib']

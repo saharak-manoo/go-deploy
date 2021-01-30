@@ -15,33 +15,29 @@ module GoDeploy
     def initialize
       super
       begin
-        file_name = ARGV[0] || 'production'
-        self.config = YAML.load_file(File.join(__dir__, "#{file_name}.yaml"))
-        @console = Console.new config
+        error_message = 'Please specify an order e.g.go-deploy production deploy or go-deploy production logs'
+        @file_name = ARGV[0]
+        @action = ARGV[1]
+        puts error_message.red and exit if @file_name.nil? && @action.nil?
+
+        yaml_file = File.join(Dir.pwd, "#{@file_name}.yaml")
+
+        self.config = YAML.load_file(yaml_file)
+        @console = Console.new(config)
         @service = config['service']
       rescue StandardError => e
         puts e.message.red
-        raise
+        exit
       end
     end
 
     def run
-      # Step 1
-      wrapper
-      # Step 2
-      git_check
-      # Step 3
-      git_clone
-      # Step 4
-      set_env
-      # Step 5
-      build_go
-      # Stop 6
-      stop_go_service_and_copy_files
-      # Stop 7
-      remove_files
-      # Stop 8
-      start_go_service
+      case @action.upcase
+      when 'DEPLOY'
+        deploy_go
+      when 'LOGS'
+        logs
+      end
     end
 
     private
@@ -58,6 +54,30 @@ module GoDeploy
         forward_agent: true,
         paranoid: true
       }
+    end
+
+    def deploy_go
+      # Step 1
+      wrapper
+      # Step 2
+      git_check
+      # Step 3
+      git_clone
+      # Step 4
+      set_env
+      # Step 5
+      build_go
+      # Stop 6
+      stop_go_service_and_copy_files
+      # Stop 7
+      remove_files
+      # Stop 8
+      start_go_service if @is_restart
+    end
+
+    def logs
+      @service_name = @service['name']
+      @console.sudo_exec(ssh: ssh, command: "sudo journalctl -u #{@service_name}.service -f", is_show_color: false)
     end
 
     def wrapper
@@ -92,7 +112,7 @@ module GoDeploy
       project_env_file = "#{@deploy_to}/repo/.env"
       @env_file = @service['env_file']
       puts 'Step 4 set:env'.green
-      show("Uploading #{project_env_file}") if ssh.scp.upload!(@env_file, project_env_file)
+      @console.log(command: "Uploading #{project_env_file}") if ssh.scp.upload!(@env_file, project_env_file)
     end
 
     def build_go
@@ -102,8 +122,9 @@ module GoDeploy
 
     def stop_go_service_and_copy_files
       @service_name = @service['name']
-      puts "Step 6 systemctl:stop:#{@service_name}".green
-      @console.exec(ssh: ssh, command: "cd #{@deploy_to}/repo && sudo systemctl stop #{@service_name}.service")
+      @is_restart = @service['is_restart']
+      puts "Step 6 systemctl:stop:#{@service_name}".green if @is_restart
+      @console.sudo_exec(ssh: ssh, command: "sudo systemctl stop #{@service_name}.service")
       @console.exec(ssh: ssh, command: "cd #{@deploy_to}/repo && mv #{@env_file} #{@deploy_to}")
 
       @service['copy_files'].each do |file_name|
@@ -123,9 +144,7 @@ module GoDeploy
 
     def start_go_service
       puts "Step 8 systemctl:start#{@service_name}".green
-      @console.exec(ssh: ssh, command: "sudo systemctl start #{@service_name}.service")
+      @console.sudo_exec(ssh: ssh, command: "sudo systemctl start #{@service_name}.service")
     end
   end
 end
-
-GoDeploy::Deploy.new.run
