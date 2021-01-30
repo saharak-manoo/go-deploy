@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+require 'go_deploy'
+
+GoDeploy::Deploy.new.run
